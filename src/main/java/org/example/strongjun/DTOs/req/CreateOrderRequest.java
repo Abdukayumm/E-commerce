@@ -11,9 +11,6 @@ import java.util.List;
 @Builder
 public class CreateOrderRequest {
 
-    @NotBlank(message = "Customer name is required")
-    private String customerName;
-
     @Email(message = "Invalid email format")
     @NotBlank(message = "Customer email is required")
     private String customerEmail;

@@ -23,12 +23,6 @@ public class Order {
     private Long id;
 
     @Column(nullable = false)
-    private String customerName;
-
-    @Column(nullable = false)
-    private String customerEmail;
-
-    @Column(nullable = false)
     private LocalDateTime orderDate;
 
     @Enumerated(EnumType.STRING)
@@ -37,6 +31,11 @@ public class Order {
 
     @Column(nullable = false)
     private BigDecimal totalAmount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
+    private User user;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore

@@ -7,6 +7,7 @@ import org.example.strongjun.DTOs.res.OrderResponse;
 import org.example.strongjun.entity.Order;
 import org.example.strongjun.entity.OrderItem;
 import org.example.strongjun.entity.Product;
+import org.example.strongjun.entity.User;
 import org.example.strongjun.entity.enums.OrderStatus;
 import org.example.strongjun.exception.InsufficientStockException;
 import org.example.strongjun.exception.InvalidOrderStatusException;
@@ -14,9 +15,9 @@ import org.example.strongjun.exception.OrderNotFoundException;
 import org.example.strongjun.exception.ProductNotFoundException;
 import org.example.strongjun.repo.OrderRepository;
 import org.example.strongjun.repo.ProductRepository;
+import org.example.strongjun.repo.UserRepository;
 import org.example.strongjun.service.interfaces.OrderService;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -24,11 +25,11 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
 
     @Override
     public List<OrderResponse> getAllOrders() {
@@ -46,6 +47,10 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse createOrder(CreateOrderRequest request) {
+
+        User user = userRepository.findByEmail(request.getCustomerEmail())
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + request.getCustomerEmail()));
+
         Set<Long> productIds = new HashSet<>();
         for (CreateOrderRequest.OrderItemRequest item : request.getOrderItems()) {
             if (!productIds.add(item.getProductId())) {
@@ -67,8 +72,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         Order order = Order.builder()
-                .customerName(request.getCustomerName())
-                .customerEmail(request.getCustomerEmail())
+                .user(user)
                 .status(OrderStatus.PENDING)
                 .orderItems(new ArrayList<>())
                 .build();
@@ -98,6 +102,7 @@ public class OrderServiceImpl implements OrderService {
         Order savedOrder = orderRepository.save(order);
         return mapToResponse(savedOrder);
     }
+
 
     @Override
     public OrderResponse updateOrderStatus(Long orderId, OrderStatus status) {
@@ -129,10 +134,15 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public List<OrderResponse> getOrdersByCustomerEmail(String email) {
-        return orderRepository.findByCustomerEmail(email).stream()
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
+
+        return orderRepository.findAll().stream()
+                .filter(o -> o.getUser().getId().equals(user.getId()))
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+
 
     private OrderResponse mapToResponse(Order order) {
         List<OrderItemResponse> items = order.getOrderItems().stream()
@@ -148,8 +158,6 @@ public class OrderServiceImpl implements OrderService {
 
         return OrderResponse.builder()
                 .id(order.getId())
-                .customerName(order.getCustomerName())
-                .customerEmail(order.getCustomerEmail())
                 .orderDate(order.getOrderDate())
                 .status(order.getStatus())
                 .totalAmount(order.getTotalAmount())
